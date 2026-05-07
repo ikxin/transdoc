@@ -88,10 +88,11 @@ function createProcessor(filePath?: string) {
   const processor = unified()
     .use(remarkParse)
     .use(remarkFrontmatter, ['yaml', 'toml'])
-    .use(remarkMdc)
 
   if (filePath?.endsWith('.mdx')) {
     processor.use(remarkMdx)
+  } else {
+    processor.use(remarkMdc)
   }
 
   return processor.use(remarkStringify)

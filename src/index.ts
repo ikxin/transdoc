@@ -19,6 +19,7 @@ import { translateByChunks } from './remark.ts'
 
 const DEFAULT_CHUNKED = true
 const DEFAULT_CONCURRENCY = 10
+const USER_AGENT = 'claude-cli/2.1.126 (external, cli)'
 const SYSTEM_PROMPT = `将以下 markdown 格式的内容翻译成中文，请遵守以下规则：
 1. 严格保持原文的 markdown 格式和结构不变
 2. 代码块中只翻译注释内容，不要修改任何代码、变量名、函数名、关键字
@@ -44,6 +45,9 @@ function createModel(provider: ProviderConfig): LanguageModel {
     const openai = createOpenAI({
       apiKey: provider.api_key,
       baseURL: provider.base_url,
+      headers: {
+        'User-Agent': USER_AGENT,
+      },
     })
     return openai(provider.model)
   }
@@ -51,6 +55,9 @@ function createModel(provider: ProviderConfig): LanguageModel {
   const anthropic = createAnthropic({
     apiKey: provider.api_key,
     baseURL: provider.base_url,
+    headers: {
+      'User-Agent': USER_AGENT,
+    },
   })
   return anthropic(provider.model)
 }
@@ -120,14 +127,14 @@ function createTranslateFn(
           if (result) return result
         } catch (error) {
           const message =
-            error instanceof Error ? error.stack || error.message : String(error)
+            error instanceof Error
+              ? error.stack || error.message
+              : String(error)
           console.error(`上游报错，准备重试：${message}`)
         }
       }
 
-      throw new Error(
-        `分片 ${currentChunkIndex} 翻译失败，已达到最大重试次数`,
-      )
+      throw new Error(`分片 ${currentChunkIndex} 翻译失败，已达到最大重试次数`)
     })
 }
 
@@ -162,11 +169,7 @@ async function translateFiles(
       const content = readFileSync(file, 'utf-8')
 
       try {
-        const translateFn = createTranslateFn(
-          model,
-          file,
-          withConcurrencyLimit,
-        )
+        const translateFn = createTranslateFn(model, file, withConcurrencyLimit)
         const result = DEFAULT_CHUNKED
           ? await translateByChunks(content, translateFn, { filePath: file })
           : await translateFn(content)
