@@ -1,10 +1,10 @@
 {
-  "name": "llm-translator",
+  "name": "transdoc",
   "module": "index.ts",
   "type": "module",
-  "packageManager": "pnpm@10.19.0",
+  "packageManager": "pnpm@11.8.0",
   "bin": {
-    "llm-translator": "./src/index.ts"
+    "transdoc": "./src/index.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^1.2.9",
