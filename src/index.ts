@@ -1,15 +1,12 @@
 #!/usr/bin/env node
 
-import { createOpenAI } from '@ai-sdk/openai'
-import { createAnthropic } from '@ai-sdk/anthropic'
-import type { LanguageModel } from 'ai'
+import OpenAI from 'openai'
 import { homedir } from 'os'
 import { join } from 'path'
 import { mkdirSync, existsSync, readFileSync, writeFileSync } from 'fs'
 import { program } from 'commander'
 import { parse } from 'ini'
 import {
-  type ProviderConfig,
   getAllFiles,
   getGitMergeFiles,
   getOutputText,
@@ -34,45 +31,32 @@ if (!existsSync(configDir)) {
 }
 
 type RawConfig = {
-  provider: string
-  [provider: string]: unknown
+  base_url?: string
+  model: string
+  api_key: string
 }
 
 const config = parse(readFileSync(configFile, 'utf-8')) as RawConfig
 
-function createModel(provider: ProviderConfig): LanguageModel {
-  if (provider.type === 'openai') {
-    const openai = createOpenAI({
-      apiKey: provider.api_key,
-      baseURL: provider.base_url,
-      headers: {
-        'User-Agent': USER_AGENT,
-      },
-    })
-    return openai(provider.model)
-  }
-
-  const anthropic = createAnthropic({
-    apiKey: provider.api_key,
-    baseURL: provider.base_url,
-    headers: {
+function createClient(config: RawConfig): OpenAI {
+  return new OpenAI({
+    apiKey: config.api_key,
+    baseURL: config.base_url,
+    defaultHeaders: {
       'User-Agent': USER_AGENT,
     },
   })
-  return anthropic(provider.model)
 }
 
-function resolveModel(): {
-  provider: string
-  model: LanguageModel
+function resolveClient(): {
+  client: OpenAI
+  model: string
 } {
-  const selectedProvider =
-    process.env.TRANSDOC_PROVIDER || config.provider
-  const providerConfig = config[selectedProvider] as ProviderConfig
+  const client = createClient(config)
 
   return {
-    provider: selectedProvider,
-    model: createModel(providerConfig),
+    client,
+    model: config.model,
   }
 }
 
@@ -109,7 +93,8 @@ function createConcurrencyLimiter(concurrency: number) {
 }
 
 function createTranslateFn(
-  model: LanguageModel,
+  client: OpenAI,
+  model: string,
   file: string,
   withConcurrencyLimit: <T>(task: () => Promise<T>) => Promise<T>,
 ) {
@@ -119,11 +104,16 @@ function createTranslateFn(
       const currentChunkIndex = ++chunkIndex
       let attempts = 0
 
-      while (attempts < 5) {
+      while (attempts < 3) {
         attempts++
         console.log(`${file} 分片 ${currentChunkIndex} 第 ${attempts} 次翻译`)
         try {
-          const result = await getOutputText(model, SYSTEM_PROMPT, prompt)
+          const result = await getOutputText(
+            client,
+            model,
+            SYSTEM_PROMPT,
+            prompt,
+          )
           if (result) return result
         } catch (error) {
           const message =
@@ -140,7 +130,8 @@ function createTranslateFn(
 
 async function translateFiles(
   files: string[],
-  model: LanguageModel,
+  client: OpenAI,
+  model: string,
   concurrency: number,
 ) {
   const requestConcurrency = Math.max(1, concurrency)
@@ -169,7 +160,12 @@ async function translateFiles(
       const content = readFileSync(file, 'utf-8')
 
       try {
-        const translateFn = createTranslateFn(model, file, withConcurrencyLimit)
+        const translateFn = createTranslateFn(
+          client,
+          model,
+          file,
+          withConcurrencyLimit,
+        )
         const result = DEFAULT_CHUNKED
           ? await translateByChunks(content, translateFn, { filePath: file })
           : await translateFn(content)
@@ -200,31 +196,24 @@ program
       process.exit(1)
     }
 
-    const { provider, model } = resolveModel()
+    const { client, model } = resolveClient()
     const concurrency = DEFAULT_CONCURRENCY
-    console.log(`提供商：${provider}、模型：${model.modelId}`)
+    console.log(`模型：${model}`)
 
-    await translateFiles(getAllFiles(filePath), model, concurrency)
+    await translateFiles(getAllFiles(filePath), client, model, concurrency)
   })
 
 program.command('init').action(() => {
-  const configTemplate =
-    'provider = openai\n' +
-    '\n' +
-    '[openai]\n' +
-    'base_url = \n' +
-    'model = \n' +
-    'api_key =\n' +
-    'type = \n'
+  const configTemplate = 'base_url = \n' + 'model = \n' + 'api_key = \n'
 
   writeFileSync(join(configDir, 'app.conf'), configTemplate, 'utf-8')
   console.log('配置已保存到', configDir)
 })
 
 program.command('merge').action(async () => {
-  const { provider, model } = resolveModel()
+  const { client, model } = resolveClient()
   const concurrency = DEFAULT_CONCURRENCY
-  console.log(`提供商：${provider}、模型：${model.modelId}`)
+  console.log(`模型：${model}`)
 
   const files = await getGitMergeFiles()
 
@@ -237,7 +226,7 @@ program.command('merge').action(async () => {
   await resolveGitConflict(files)
   console.log('冲突已解决，开始翻译...')
 
-  await translateFiles(files, model, concurrency)
+  await translateFiles(files, client, model, concurrency)
 })
 
 program.parse(process.argv)

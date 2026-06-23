@@ -2,14 +2,7 @@ import { globSync } from 'glob'
 import { join } from 'path'
 import { simpleGit } from 'simple-git'
 import { statSync, readFileSync, writeFileSync } from 'fs'
-import { generateText, type LanguageModel } from 'ai'
-
-export interface ProviderConfig {
-  type: 'openai' | 'anthropic'
-  api_key: string
-  model: string
-  base_url?: string
-}
+import type OpenAI from 'openai'
 
 const IGNORED_FILES = [
   'AGENTS.md',
@@ -81,13 +74,24 @@ export async function resolveGitConflict(files: string[]) {
 }
 
 export async function getOutputText(
-  model: LanguageModel,
+  client: OpenAI,
+  model: string,
   system: string,
   prompt: string,
 ) {
-  const response = await generateText({ model, system, prompt })
+  const response = await client.responses.create({
+    model,
+    instructions: system,
+    input: prompt,
+  })
 
-  let result = response.text.trim()
+  const content = response.output_text
+
+  if (!content) {
+    throw new Error('API 返回了空的 output_text')
+  }
+
+  let result = content.trim()
 
   if (result.startsWith('```markdown')) {
     const i = result.indexOf('\n')
