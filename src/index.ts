@@ -5,6 +5,7 @@ import { homedir } from 'os'
 import { join } from 'path'
 import { mkdirSync, existsSync, readFileSync, writeFileSync } from 'fs'
 import { program } from 'commander'
+import pLimit from 'p-limit'
 import {
   getAllFiles,
   getGitMergeFiles,
@@ -14,7 +15,7 @@ import {
 import { translateByChunks } from './remark.ts'
 
 const DEFAULT_CHUNKED = true
-const DEFAULT_CONCURRENCY = 10
+const DEFAULT_QUEUE = 10
 const USER_AGENT = 'claude-cli/2.1.126 (external, cli)'
 const SYSTEM_PROMPT = `将以下 markdown 格式的内容翻译成中文，请遵守以下规则：
 1. 严格保持原文的 markdown 格式和结构不变
@@ -72,47 +73,16 @@ function resolveClient(): {
   }
 }
 
-function createConcurrencyLimiter(concurrency: number) {
-  const limit = Math.max(1, concurrency)
-  let activeCount = 0
-  const queue: Array<() => void> = []
-
-  const runNext = () => {
-    if (activeCount >= limit || queue.length === 0) {
-      return
-    }
-
-    activeCount++
-    const next = queue.shift()
-    next?.()
-  }
-
-  return async function withConcurrencyLimit<T>(
-    task: () => Promise<T>,
-  ): Promise<T> {
-    await new Promise<void>((resolve) => {
-      queue.push(resolve)
-      runNext()
-    })
-
-    try {
-      return await task()
-    } finally {
-      activeCount--
-      runNext()
-    }
-  }
-}
 
 function createTranslateFn(
   client: OpenAI,
   model: string,
   file: string,
-  withConcurrencyLimit: <T>(task: () => Promise<T>) => Promise<T>,
+  limit: ReturnType<typeof pLimit>,
 ) {
   let chunkIndex = 0
   return async (prompt: string) =>
-    withConcurrencyLimit(async () => {
+    limit(async () => {
       const currentChunkIndex = ++chunkIndex
       let attempts = 0
 
@@ -144,16 +114,16 @@ async function translateFiles(
   files: string[],
   client: OpenAI,
   model: string,
-  concurrency: number,
+  queue: number,
 ) {
-  const requestConcurrency = Math.max(1, concurrency)
-  const taskConcurrency = Math.min(requestConcurrency, files.length)
+  const requestLimit = Math.max(1, queue)
+  const workerCount = Math.min(requestLimit, files.length)
 
-  if (taskConcurrency === 0) {
+  if (workerCount === 0) {
     return
   }
 
-  const withConcurrencyLimit = createConcurrencyLimiter(requestConcurrency)
+  const limit = pLimit(requestLimit)
   let nextIndex = 0
 
   const worker = async () => {
@@ -176,7 +146,7 @@ async function translateFiles(
           client,
           model,
           file,
-          withConcurrencyLimit,
+          limit,
         )
         const result = DEFAULT_CHUNKED
           ? await translateByChunks(content, translateFn, { filePath: file })
@@ -191,7 +161,7 @@ async function translateFiles(
     }
   }
 
-  await Promise.all(Array.from({ length: taskConcurrency }, () => worker()))
+  await Promise.all(Array.from({ length: workerCount }, () => worker()))
 }
 
 program
@@ -209,10 +179,10 @@ program
     }
 
     const { client, model } = resolveClient()
-    const concurrency = DEFAULT_CONCURRENCY
+    const queue = DEFAULT_QUEUE
     console.log(`模型：${model}`)
 
-    await translateFiles(getAllFiles(filePath), client, model, concurrency)
+    await translateFiles(getAllFiles(filePath), client, model, queue)
   })
 
 program.command('init').action(() => {
@@ -232,7 +202,7 @@ program.command('init').action(() => {
 
 program.command('merge').action(async () => {
   const { client, model } = resolveClient()
-  const concurrency = DEFAULT_CONCURRENCY
+  const queue = DEFAULT_QUEUE
   console.log(`模型：${model}`)
 
   const files = await getGitMergeFiles()
@@ -246,7 +216,7 @@ program.command('merge').action(async () => {
   await resolveGitConflict(files)
   console.log('冲突已解决，开始翻译...')
 
-  await translateFiles(files, client, model, concurrency)
+  await translateFiles(files, client, model, queue)
 })
 
 program.parse(process.argv)

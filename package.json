@@ -10,6 +10,7 @@
     "commander": "^15.0.0",
     "glob": "^13.0.6",
     "openai": "^6.44.0",
+    "p-limit": "^7.3.0",
     "remark-frontmatter": "^5.0.0",
     "remark-mdc": "^3.11.0",
     "remark-mdx": "^3.1.1",
@@ -20,7 +21,8 @@
   },
   "devDependencies": {
     "@types/mdast": "^4.0.4",
-    "@types/node": "^26.0.0"
+    "@types/node": "^26.0.0",
+    "typescript": "^6.0.3"
   },
   "prettier": {
     "semi": false,
