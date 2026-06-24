@@ -7,22 +7,20 @@
     "transdoc": "./src/index.ts"
   },
   "dependencies": {
-    "commander": "^14.0.2",
-    "glob": "^11.0.3",
-    "ini": "^6.0.0",
-    "openai": "^4.77.3",
+    "commander": "^15.0.0",
+    "glob": "^13.0.6",
+    "openai": "^6.44.0",
     "remark-frontmatter": "^5.0.0",
-    "remark-mdc": "^3.10.0",
+    "remark-mdc": "^3.11.0",
     "remark-mdx": "^3.1.1",
     "remark-parse": "^11.0.0",
     "remark-stringify": "^11.0.0",
-    "simple-git": "^3.28.0",
+    "simple-git": "^3.36.0",
     "unified": "^11.0.5"
   },
   "devDependencies": {
-    "@types/ini": "^4.1.1",
     "@types/mdast": "^4.0.4",
-    "@types/node": "^24.9.1"
+    "@types/node": "^26.0.0"
   },
   "prettier": {
     "semi": false,

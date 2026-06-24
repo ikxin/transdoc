@@ -5,7 +5,6 @@ import { homedir } from 'os'
 import { join } from 'path'
 import { mkdirSync, existsSync, readFileSync, writeFileSync } from 'fs'
 import { program } from 'commander'
-import { parse } from 'ini'
 import {
   getAllFiles,
   getGitMergeFiles,
@@ -24,7 +23,7 @@ const SYSTEM_PROMPT = `将以下 markdown 格式的内容翻译成中文，请�
 4. 直接输出翻译结果，不要用代码块包裹，不要添加任何额外的解释内容`
 
 const configDir = join(homedir(), '.config', 'transdoc')
-const configFile = join(configDir, 'app.conf')
+const configFile = join(configDir, 'config.json')
 
 if (!existsSync(configDir)) {
   mkdirSync(configDir, { recursive: true })
@@ -36,7 +35,19 @@ type RawConfig = {
   api_key: string
 }
 
-const config = parse(readFileSync(configFile, 'utf-8')) as RawConfig
+function loadConfig(): RawConfig {
+  if (!existsSync(configFile)) {
+    console.error('配置文件不存在，请先运行 transdoc init 初始化配置')
+    process.exit(1)
+  }
+
+  try {
+    return JSON.parse(readFileSync(configFile, 'utf-8')) as RawConfig
+  } catch (error) {
+    console.error('配置文件格式错误，请检查或重新运行 transdoc init')
+    process.exit(1)
+  }
+}
 
 function createClient(config: RawConfig): OpenAI {
   return new OpenAI({
@@ -52,6 +63,7 @@ function resolveClient(): {
   client: OpenAI
   model: string
 } {
+  const config = loadConfig()
   const client = createClient(config)
 
   return {
@@ -204,9 +216,17 @@ program
   })
 
 program.command('init').action(() => {
-  const configTemplate = 'base_url = \n' + 'model = \n' + 'api_key = \n'
+  const configTemplate = {
+    base_url: 'https://open.markhub.top',
+    model: 'gpt-5.4-mini',
+    api_key: 'sk-********************************',
+  }
 
-  writeFileSync(join(configDir, 'app.conf'), configTemplate, 'utf-8')
+  writeFileSync(
+    join(configDir, 'config.json'),
+    JSON.stringify(configTemplate, null, 2),
+    'utf-8',
+  )
   console.log('配置已保存到', configDir)
 })
 
