@@ -1,10 +1,10 @@
 import type { Root, RootContent } from 'mdast'
-import { unified } from 'unified'
+import remarkFrontmatter from 'remark-frontmatter'
+import remarkMdc from 'remark-mdc'
+import remarkMdx from 'remark-mdx'
 import remarkParse from 'remark-parse'
 import remarkStringify from 'remark-stringify'
-import remarkFrontmatter from 'remark-frontmatter'
-import remarkMdx from 'remark-mdx'
-import remarkMdc from 'remark-mdc'
+import { unified } from 'unified'
 
 // 不需要翻译的节点类型（纯编程结构）
 const NON_TRANSLATABLE_TYPES = new Set([
