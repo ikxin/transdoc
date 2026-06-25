@@ -125,9 +125,11 @@ export async function translateByChunks(
     maxChunkSize?: number
     minChunkSize?: number
     filePath?: string
+    onChunksResolved?: (total: number) => void
+    onChunkDone?: () => void
   } = {},
 ): Promise<string> {
-  const { maxChunkSize = 50000, minChunkSize = 10000, filePath } = options
+  const { maxChunkSize = 50000, minChunkSize = 10000, filePath, onChunksResolved, onChunkDone } = options
   const processor = createProcessor(filePath)
 
   const tree = processor.parse(content) as Root
@@ -136,6 +138,9 @@ export async function translateByChunks(
   if (chunks.length === 0) {
     return content
   }
+
+  const translatableCount = chunks.filter((c) => c.translatable).length
+  onChunksResolved?.(translatableCount)
 
   const translatedChunks = await Promise.all(
     chunks.map(async (chunk) => {
@@ -146,6 +151,7 @@ export async function translateByChunks(
       }
 
       const translated = await translateFn(chunkText)
+      onChunkDone?.()
       return processChunkOutput(translated)
     }),
   )

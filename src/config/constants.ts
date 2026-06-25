@@ -1,5 +1,6 @@
 export const DEFAULT_CHUNKED = true
-export const DEFAULT_QUEUE = 10
+export const DEFAULT_QUEUE = 4
+export const DEFAULT_RETRIES = 2
 export const USER_AGENT = 'claude-cli/2.1.126 (external, cli)'
 
 export const SYSTEM_PROMPT = `将以下 markdown 格式的内容翻译成中文，请遵守以下规则：

@@ -3,6 +3,7 @@ import { DEFAULT_QUEUE } from '../config/constants.ts'
 import { resolveClient } from '../service/llm.ts'
 import { translateFiles } from '../service/translator.ts'
 import { getAllFiles } from '../utils/files.ts'
+import { createReporter } from '../utils/render.ts'
 
 export function registerTranslateCommand(program: Command) {
   program.argument('[filePath]', '需要翻译的文件路径').action(async (filePath) => {
@@ -14,8 +15,13 @@ export function registerTranslateCommand(program: Command) {
 
     const { client, model } = resolveClient()
     const queue = DEFAULT_QUEUE
-    console.log(`模型：${model}`)
+    const files = getAllFiles(filePath)
 
-    await translateFiles(getAllFiles(filePath), client, model, queue)
+    const reporter = createReporter(model, queue, files.length)
+    reporter.start()
+
+    await translateFiles(files, client, model, queue, reporter.callbacks)
+
+    reporter.stop()
   })
 }

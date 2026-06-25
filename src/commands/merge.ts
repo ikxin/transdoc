@@ -3,12 +3,12 @@ import { DEFAULT_QUEUE } from '../config/constants.ts'
 import { resolveClient } from '../service/llm.ts'
 import { translateFiles } from '../service/translator.ts'
 import { getGitMergeFiles, resolveGitConflict } from '../utils/git.ts'
+import { createReporter } from '../utils/render.ts'
 
 export function registerMergeCommand(program: Command) {
   program.command('merge').action(async () => {
     const { client, model } = resolveClient()
     const queue = DEFAULT_QUEUE
-    console.log(`模型：${model}`)
 
     const files = await getGitMergeFiles()
 
@@ -19,8 +19,13 @@ export function registerMergeCommand(program: Command) {
 
     console.log(`正在使用 git 解决 ${files.length} 个文件的冲突...`)
     await resolveGitConflict(files)
-    console.log('冲突已解决，开始翻译...')
+    console.log('冲突已解决，开始翻译...\n')
 
-    await translateFiles(files, client, model, queue)
+    const reporter = createReporter(model, queue, files.length)
+    reporter.start()
+
+    await translateFiles(files, client, model, queue, reporter.callbacks)
+
+    reporter.stop()
   })
 }

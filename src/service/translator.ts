@@ -1,36 +1,33 @@
 import { readFileSync, writeFileSync } from 'fs'
 import type OpenAI from 'openai'
 import pLimit from 'p-limit'
-import { DEFAULT_CHUNKED, SYSTEM_PROMPT } from '../config/constants.ts'
+import { DEFAULT_CHUNKED, DEFAULT_RETRIES, SYSTEM_PROMPT } from '../config/constants.ts'
 import { translateByChunks } from '../utils/markdown.ts'
+import type { ProgressCallbacks } from '../utils/render.ts'
 import { getOutputText } from './llm.ts'
 
 function createTranslateFn(
   client: OpenAI,
   model: string,
-  file: string,
   limit: ReturnType<typeof pLimit>,
 ) {
-  let chunkIndex = 0
   return async (prompt: string) =>
     limit(async () => {
-      const currentChunkIndex = ++chunkIndex
       let attempts = 0
+      let lastError = ''
 
-      while (attempts < 3) {
+      while (attempts < DEFAULT_RETRIES) {
         attempts++
-        console.log(`${file} 分片 ${currentChunkIndex} 第 ${attempts} 次翻译`)
         try {
           const result = await getOutputText(client, model, SYSTEM_PROMPT, prompt)
           if (result) return result
         } catch (error) {
-          const message =
-            error instanceof Error ? error.stack || error.message : String(error)
-          console.error(`上游报错，准备重试：${message}`)
+          lastError =
+            error instanceof Error ? error.message : String(error)
         }
       }
 
-      throw new Error(`分片 ${currentChunkIndex} 翻译失败，已达到最大重试次数`)
+      throw new Error(`已达到最大重试次数: ${lastError}`)
     })
 }
 
@@ -39,6 +36,7 @@ export async function translateFiles(
   client: OpenAI,
   model: string,
   queue: number,
+  callbacks?: ProgressCallbacks,
 ) {
   const requestLimit = Math.max(1, queue)
   const workerCount = Math.min(requestLimit, files.length)
@@ -60,22 +58,30 @@ export async function translateFiles(
       }
 
       const file = files[currentIndex]
-      const label = `任务耗时 ${file}`
-      console.time(label)
-
       const content = readFileSync(file, 'utf-8')
 
       try {
-        const translateFn = createTranslateFn(client, model, file, limit)
-        const result = DEFAULT_CHUNKED
-          ? await translateByChunks(content, translateFn, { filePath: file })
-          : await translateFn(content)
+        const translateFn = createTranslateFn(client, model, limit)
+        let result: string
+
+        if (DEFAULT_CHUNKED) {
+          result = await translateByChunks(content, translateFn, {
+            filePath: file,
+            onChunksResolved: (total) => callbacks?.onFileStart(file, total),
+            onChunkDone: () => callbacks?.onChunkComplete(file),
+          })
+        } else {
+          callbacks?.onFileStart(file, 1)
+          result = await translateFn(content)
+          callbacks?.onChunkComplete(file)
+        }
 
         writeFileSync(file, result, 'utf-8')
-        console.timeEnd(label)
+        callbacks?.onFileComplete(file)
       } catch (error) {
-        console.timeEnd(label)
-        console.error(`文件 ${file} 翻译失败: ${error}`)
+        const message =
+          error instanceof Error ? error.message : String(error)
+        callbacks?.onFileError(file, message)
       }
     }
   }
