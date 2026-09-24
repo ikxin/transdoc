@@ -16,15 +16,15 @@ export const SYSTEM_PROMPT = `将以下 Markdown 格式的文档内容翻译成�
 - 直接输出翻译结果，不要用代码块包裹内容，不要添加额外的解释内容`
 
 export const IGNORED_FILES = [
-  'AGENTS.md',
-  'CHANGELOG.md',
-  'CLAUDE.md',
-  'CODE_OF_CONDUCT.md',
-  'CONTRIBUTING.md',
-  'DEVELOPER.md',
-  'LICENSE.md',
-  'README.md',
-  'SECURITY.md',
-  'SKILL.md',
-  'VISION.md',
+  // 'AGENTS.md',
+  // 'CHANGELOG.md',
+  // 'CLAUDE.md',
+  // 'CODE_OF_CONDUCT.md',
+  // 'CONTRIBUTING.md',
+  // 'DEVELOPER.md',
+  // 'LICENSE.md',
+  // 'README.md',
+  // 'SECURITY.md',
+  // 'SKILL.md',
+  // 'VISION.md',
 ]

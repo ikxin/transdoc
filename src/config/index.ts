@@ -37,8 +37,8 @@ export function writeDefaultConfig() {
   ensureConfigDir()
 
   const configTemplate: RawConfig = {
-    base_url: 'https://open.markhub.top',
-    model: 'gpt-5.4-mini',
+    base_url: 'https://gateway.ikxin.com',
+    model: 'gpt-6-luna',
     api_key: 'sk-********************************',
   }
 
