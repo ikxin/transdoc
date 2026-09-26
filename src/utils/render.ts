@@ -360,7 +360,7 @@ export function createReporter(
     start() {
       if (isTTY) {
         process.stderr.write(
-          `${chalk.bold('transdoc')} ${chalk.dim('·')} ${chalk.dim('实时翻译面板')}\n\n`,
+          `${chalk.bold('docforge')} ${chalk.dim('·')} ${chalk.dim('实时翻译面板')}\n\n`,
         )
         render()
         renderInterval = setInterval(render, 80)

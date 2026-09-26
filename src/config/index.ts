@@ -8,7 +8,7 @@ export type RawConfig = {
   api_key: string
 }
 
-export const configDir = join(homedir(), '.config', 'transdoc')
+export const configDir = join(homedir(), '.config', 'docforge')
 export const configFile = join(configDir, 'config.json')
 
 export function ensureConfigDir() {
@@ -21,14 +21,14 @@ export function loadConfig(): RawConfig {
   ensureConfigDir()
 
   if (!existsSync(configFile)) {
-    console.error('配置文件不存在，请先运行 transdoc init 初始化配置')
+    console.error('配置文件不存在，请先运行 docforge init 初始化配置')
     process.exit(1)
   }
 
   try {
     return JSON.parse(readFileSync(configFile, 'utf-8')) as RawConfig
   } catch {
-    console.error('配置文件格式错误，请检查或重新运行 transdoc init')
+    console.error('配置文件格式错误，请检查或重新运行 docforge init')
     process.exit(1)
   }
 }

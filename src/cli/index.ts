@@ -8,7 +8,7 @@ import { registerTranslateCommand } from '../commands/translate.ts'
 const program = new Command()
 
 program
-  .name('transdoc')
+  .name('docforge')
   .version('1.0.0')
   .description('基于 LLM 的命令行翻译工具')
 
